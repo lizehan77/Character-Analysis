@@ -5,7 +5,8 @@ import re
 
 folder_path = sys.argv[1]
 mode = sys.argv[2]
-settings_path = r"D:\PyCharm 2026.2.1\wj\speak\settings.json"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+settings_path = os.path.join(BASE_DIR, "settings.json")
 
 use_api = False
 if os.path.exists(settings_path):
@@ -73,8 +74,7 @@ def run_analysis():
     messages = [{"role": "user", "content": prompt}]
 
     if use_api:
-        root_dir = r"D:\PyCharm 2026.2.1\wj\speak"
-        if root_dir not in sys.path: sys.path.append(root_dir)
+        if BASE_DIR not in sys.path: sys.path.append(BASE_DIR)
         from llm_api import call_llm_api
         print("🚀 使用云端 API 推理...", file=sys.stderr)
         result = call_llm_api(messages, settings_path)

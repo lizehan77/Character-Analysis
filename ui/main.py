@@ -22,9 +22,10 @@ class MainWindow(QMainWindow):
         self.resize(1180, 720)
         self.setStyleSheet("QMainWindow { background-color: #f4f6f9; }")
 
-        # ======== 绝对路径写死 ========
-        self.users_root_dir = r"D:\PyCharm 2026.2.1\wj\speak\Users"
-        self.settings_path = r"D:\PyCharm 2026.2.1\wj\speak\settings.json"
+        # ======== 动态获取根目录 ========
+        self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.users_root_dir = os.path.join(self.base_dir, "Users")
+        self.settings_path = os.path.join(self.base_dir, "settings.json")
         self.current_user_name = ""
 
         self.init_settings_file()
@@ -94,7 +95,6 @@ class MainWindow(QMainWindow):
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(0)
 
-        # 顶部提示与模式切换栏
         top_disclaimer_bar = QWidget()
         top_disclaimer_bar.setFixedHeight(32)
         top_disclaimer_bar.setStyleSheet("background-color: #fff8e1; border-bottom: 1px solid #ffe082;")
@@ -131,7 +131,6 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(right_container, 1)
 
-        # ================= 实例化各个页面 =================
         self.user_list = []
 
         self.page_train = TrainPage()
@@ -192,7 +191,7 @@ class MainWindow(QMainWindow):
 
         if not api_key or "填入" in api_key:
             QMessageBox.warning(self, "API 配置缺失", "检测到 API Key 为空！\n请点击左侧【⚙️】按钮填写真实的 API Key。")
-            self.mode_combo.setCurrentIndex(0)  # 强制切回本地
+            self.mode_combo.setCurrentIndex(0)
             return
 
         try:
@@ -206,7 +205,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "API 连接失败",
                                  f"❌ 无法连接云端 API，请检查网络或 Key 是否正确。\n错误: {e}\n\n系统已自动退回本地模式。")
-            self.mode_combo.setCurrentIndex(0)  # 失败强制切回本地
+            self.mode_combo.setCurrentIndex(0)
 
     def open_settings(self):
         self.init_settings_file()
@@ -253,10 +252,10 @@ class MainWindow(QMainWindow):
         nickname = nickname.strip()
 
         if any(c in '\\/:*?"<>|' for c in nickname):
-            QMessageBox.warning(self, "错误", "昵称包含非法字符！");
+            QMessageBox.warning(self, "错误", "昵称包含非法字符！")
             return
         if nickname in self.user_list:
-            QMessageBox.warning(self, "错误", "用户已存在！");
+            QMessageBox.warning(self, "错误", "用户已存在！")
             return
 
         initial_persona, ok2 = QInputDialog.getMultiLineText(self, "初始人设", "请输入TA的初始人设/背景（可留空）：", "")
@@ -279,7 +278,7 @@ class MainWindow(QMainWindow):
 
     def select_user(self):
         if not self.user_list:
-            QMessageBox.information(self, "提示", "暂无用户。");
+            QMessageBox.information(self, "提示", "暂无用户。")
             return
         user, ok = QInputDialog.getItem(self, "选择用户", "请选择:", self.user_list, 0, False)
         if ok and user:

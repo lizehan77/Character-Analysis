@@ -4,8 +4,10 @@ import json
 import re
 
 folder_path = sys.argv[1]
-# 使用绝对路径读取配置
-settings_path = r"D:\PyCharm 2026.2.1\wj\speak\settings.json"
+
+# ======== 动态获取路径 ========
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+settings_path = os.path.join(BASE_DIR, "settings.json")
 
 use_api = False
 if os.path.exists(settings_path):
@@ -44,9 +46,7 @@ messages = [{"role": "user", "content": prompt}]
 
 try:
     if use_api:
-        # 动态修改 sys.path 确保能找到根目录下的 llm_api
-        root_dir = r"D:\PyCharm 2026.2.1\wj\speak"
-        if root_dir not in sys.path: sys.path.append(root_dir)
+        if BASE_DIR not in sys.path: sys.path.append(BASE_DIR)
         from llm_api import call_llm_api
 
         print("🚀 使用云端 API 推理...", file=sys.stderr)
