@@ -54,7 +54,3 @@ python ui/main.py
 
 🤝 贡献与反馈
 非常欢迎提交 Issue 或 Pull Request！如果你觉得这个项目有意思，不妨点个 ⭐️ Star 支持一下！
-
-text
-
-把这个干净版保存到 `README.md`，然后在终端推上去就可以了！如果推的过程中遇到网络报错，随时告诉我。
