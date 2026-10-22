@@ -6,6 +6,10 @@ import subprocess
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QPushButton, QLineEdit)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path: sys.path.append(BASE_DIR)
+from worker_launch import launch_worker
+
 
 class ChatWorker(QThread):
     finished_signal = pyqtSignal(str)
@@ -20,9 +24,8 @@ class ChatWorker(QThread):
     def run(self):
         try:
             worker_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "simulate_worker.py")
-            proc = subprocess.Popen([sys.executable, worker_path, self.folder_path, self.history_json],
-                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8",
-                                    errors="replace", bufsize=1)
+            proc = worker_launch.launch_worker(worker_path, [self.folder_path, self.history_json],
+                                               encoding="utf-8", errors="replace", bufsize=1)
             chunks = []
             for line in proc.stdout:  # 流式读取，实时回显进度
                 chunks.append(line)

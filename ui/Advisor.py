@@ -7,6 +7,10 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdi
                              QScrollArea, QApplication, QFrame, QProgressBar)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path: sys.path.append(BASE_DIR)
+from worker_launch import launch_worker
+
 
 class AdvisorWorker(QThread):
     finished_signal = pyqtSignal(str)
@@ -21,9 +25,8 @@ class AdvisorWorker(QThread):
     def run(self):
         try:
             worker_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "realtime_worker.py")
-            proc = subprocess.Popen([sys.executable, worker_path, self.folder_path, self.chat_json],
-                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8",
-                                    errors="replace", bufsize=1)
+            proc = worker_launch.launch_worker(worker_path, [self.folder_path, self.chat_json],
+                                               encoding="utf-8", errors="replace", bufsize=1)
             chunks = []
             for line in proc.stdout:  # 流式读取，实时回显进度
                 chunks.append(line)
@@ -183,12 +186,10 @@ class AdvisorPage(QWidget):
             content = content.replace("胡萝贝", "对方").replace("Let me say", "对方")
 
             if "好感度" in title:
-                score = 50
-                match = re.search(r'(\d+)', content)
+                # 必须匹配「好感度: 数字」；抓不到就不展示，避免误取正文里的任意数字当成分数
+                match = re.search(r'好感度\s*[：:]\s*\*{0,2}(\d{1,3})', content)
                 if match:
-                    score = min(100, int(match.group(1)))
-                    if score < 0: score = 0
-                self.add_score_card("💖 当前好感度", score)
+                    self.add_score_card("💖 当前好感度", max(0, min(100, int(match.group(1)))))
             elif "情绪分析" in title:
                 self.add_card("🔍 对方当前情绪分析", content, "#e3f2fd", "#1565c0")
             elif "策略" in title:

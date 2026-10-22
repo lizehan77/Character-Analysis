@@ -6,6 +6,11 @@ import re
 folder_path = sys.argv[1]
 mode = sys.argv[2]
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path: sys.path.append(BASE_DIR)
+from worker_launch import force_utf8_stdio
+
+force_utf8_stdio()  # Windows 下默认 GBK 输出会让中文在调用方变成乱码
+
 settings_path = os.path.join(BASE_DIR, "settings.json")
 
 use_api = False
