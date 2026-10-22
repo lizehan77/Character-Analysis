@@ -6,7 +6,7 @@ import re
 folder_path = sys.argv[1]
 
 # ======== 动态获取路径 ========
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 settings_path = os.path.join(BASE_DIR, "settings.json")
 
 use_api = False
@@ -52,24 +52,10 @@ try:
         print("🚀 使用云端 API 推理...", file=sys.stderr)
         result = call_llm_api(messages, settings_path)
     else:
-        print("⏳ 使用本地模型推理...", file=sys.stderr)
-        import torch
-        from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+        from local_engine import generate_local  # 复用常驻服务，避免每次重载 7B 模型
 
-        model_path = r"D:\model\qwen--Qwen2-7B-Instruct\snapshots\master"
-        bnb_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_use_double_quant=True, bnb_4bit_quant_type="nf4",
-                                        bnb_4bit_compute_dtype=torch.float16)
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-        model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16, device_map="auto",
-                                                     trust_remote_code=True, quantization_config=bnb_config)
-
-        text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = tokenizer([text], return_tensors="pt", truncation=True, max_length=2048).to("cuda")
-        torch.cuda.empty_cache()
-        outputs = model.generate(**inputs, max_new_tokens=800, temperature=0.7, use_cache=True,
-                                 pad_token_id=tokenizer.eos_token_id)
-        outputs = outputs[:, inputs["input_ids"].shape[-1]:]
-        result = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+        result = generate_local(messages, max_new_tokens=800, max_input_tokens=2048, temperature=0.7, top_p=0.9,
+                                on_progress=lambda m: print("[PROGRESS] " + m, file=sys.stderr))
 
     result = re.sub(r'\x1b\[[0-9;]*m', '', result).replace("[0m", "").replace("\x1b", "")
 

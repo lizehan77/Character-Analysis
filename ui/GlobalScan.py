@@ -91,6 +91,7 @@ class TrendChart(QFrame):
 class ScanWorker(QThread):
     finished_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
+    progress_signal = pyqtSignal(str)
 
     def __init__(self, folder_path):
         super().__init__()
@@ -100,8 +101,15 @@ class ScanWorker(QThread):
         try:
             worker_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "global_scan_worker.py")
             proc = subprocess.Popen([sys.executable, worker_path, self.folder_path], stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, encoding="utf-8", errors="replace")
-            out, _ = proc.communicate()
+                                    stderr=subprocess.STDOUT, encoding="utf-8", errors="replace", bufsize=1)
+            chunks = []
+            for line in proc.stdout:  # 流式读取，实时回显进度
+                chunks.append(line)
+                if "[PROGRESS]" in line:
+                    self.progress_signal.emit(line.split("[PROGRESS]", 1)[-1].strip())
+            proc.stdout.close()
+            proc.wait()
+            out = "".join(chunks)
             if proc.returncode != 0: self.error_signal.emit(out); return
             if "OK:" in out:
                 self.finished_signal.emit(out.split("OK:", 1)[-1].strip())
@@ -199,7 +207,12 @@ class GlobalScanPage(QWidget):
         self.worker = ScanWorker(self.current_user_path)
         self.worker.finished_signal.connect(self.on_scan_finished)
         self.worker.error_signal.connect(self.on_scan_error)
+        self.worker.progress_signal.connect(self.on_progress)
         self.worker.start()
+
+    def on_progress(self, msg):
+        self.clear_results()
+        self.append_hint(msg)
 
     def on_scan_finished(self, result):
         self.scan_btn.setEnabled(True)

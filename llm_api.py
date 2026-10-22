@@ -26,7 +26,8 @@ def call_llm_api(messages, config_path="settings.json"):
             model=model_name,
             messages=messages,
             temperature=0.7,
-            max_tokens=1024
+            max_tokens=2048,
+            timeout=120
         )
         return response.choices[0].message.content
     except Exception as e:

@@ -50,7 +50,14 @@ json
 bash
 python ui/main.py
 💻 本地模型说明
-如果你想完全离线运行，需修改根目录下各个 *_worker.py 中的 model_path 路径，指向你本地的大模型目录（如 Qwen2-7B）。
+如果你想完全离线运行，需修改 `local_server.py` 和 `local_engine.py` 中的 `MODEL_PATH`，指向你本地的大模型目录（如 Qwen2-7B）。
+
+⚡ 常驻推理服务（本地模式加速）
+本地模式下，模型由 `local_server.py` 常驻加载一次，之后所有功能（画像分析 / 军师 / 模拟对话 / 关系扫描）通过
+`local_engine.py` 复用同一份模型，不必每次点击都重新加载 7B 权重（实测首次约 30s，之后每次请求仅耗时生成时间）。
+- 服务会在首次使用时自动拉起，无需手动启动；也可手动 `python local_server.py`。
+- 空闲 15 分钟自动退出；关闭主界面时也会自动关闭，释放显存（可用环境变量 `LOCAL_SERVER_IDLE_TIMEOUT` 调整）。
+- 若服务启动失败（如显存不足），会自动回退为单次加载模式，功能不受影响。
 
 🤝 贡献与反馈
 非常欢迎提交 Issue 或 Pull Request！如果你觉得这个项目有意思，不妨点个 ⭐️ Star 支持一下！

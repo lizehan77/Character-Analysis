@@ -9,6 +9,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal
 class SubProcessWorker(QThread):
     finished_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
+    progress_signal = pyqtSignal(str)
 
     def __init__(self, folder_path, mode):
         super().__init__()
@@ -19,8 +20,15 @@ class SubProcessWorker(QThread):
         try:
             worker_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "infer_worker.py")
             proc = subprocess.Popen([sys.executable, worker_path, self.folder_path, self.mode], stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, encoding="utf-8", errors="replace")
-            out, _ = proc.communicate()
+                                    stderr=subprocess.STDOUT, encoding="utf-8", errors="replace", bufsize=1)
+            chunks = []
+            for line in proc.stdout:  # 流式读取，实时回显进度，避免"卡死"的错觉
+                chunks.append(line)
+                if "[PROGRESS]" in line:
+                    self.progress_signal.emit(line.split("[PROGRESS]", 1)[-1].strip())
+            proc.stdout.close()
+            proc.wait()
+            out = "".join(chunks)
             if proc.returncode != 0: self.error_signal.emit(out); return
             if "OK:" in out:
                 self.finished_signal.emit(out.split("OK:", 1)[-1].strip())
@@ -141,14 +149,18 @@ class TrainPage(QWidget):
         self.worker = SubProcessWorker(self.current_user_path, mode)
         self.worker.finished_signal.connect(self.on_analysis_finished)
         self.worker.error_signal.connect(self.on_analysis_error)
+        self.worker.progress_signal.connect(self.on_analysis_progress)
         self.worker.start()
+
+    def on_analysis_progress(self, msg):
+        self.log_text.append(msg)
 
     def on_analysis_finished(self, result):
         self.run_btn.setEnabled(True)
         self.run_btn.setText("🧠 开始分析并更新画像")
         self.log_text.append("✅ 分析完成！画像已更新。")
-        if self.mode_combo.currentData() == "new":
-            open(os.path.join(self.current_user_path, "new_ltjl.txt"), 'w').close()
+        # 两种模式都要清空：跑过"分析全部"后再切"仅新记录"，必须丢弃已并入全量记录的内容
+        open(os.path.join(self.current_user_path, "new_ltjl.txt"), 'w').close()
 
     def on_analysis_error(self, error_msg):
         self.run_btn.setEnabled(True)

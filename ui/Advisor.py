@@ -11,6 +11,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 class AdvisorWorker(QThread):
     finished_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
+    progress_signal = pyqtSignal(str)
 
     def __init__(self, folder_path, chat_history):
         super().__init__()
@@ -22,8 +23,15 @@ class AdvisorWorker(QThread):
             worker_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "realtime_worker.py")
             proc = subprocess.Popen([sys.executable, worker_path, self.folder_path, self.chat_json],
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8",
-                                    errors="replace")
-            out, _ = proc.communicate()
+                                    errors="replace", bufsize=1)
+            chunks = []
+            for line in proc.stdout:  # 流式读取，实时回显进度
+                chunks.append(line)
+                if "[PROGRESS]" in line:
+                    self.progress_signal.emit(line.split("[PROGRESS]", 1)[-1].strip())
+            proc.stdout.close()
+            proc.wait()
+            out = "".join(chunks)
             if proc.returncode != 0: self.error_signal.emit(out); return
             if "OK:" in out:
                 self.finished_signal.emit(out.split("OK:", 1)[-1].strip())
@@ -40,6 +48,7 @@ class AdvisorPage(QWidget):
         super().__init__(parent)
         self.current_user_path = ""
         self.worker = None
+        self.loading_label = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -130,11 +139,17 @@ class AdvisorPage(QWidget):
         loading_label.setAlignment(Qt.AlignCenter)
         loading_label.setStyleSheet("color: #888; font-size: 12px; margin-top: 20px;")
         self.result_layout.insertWidget(self.result_layout.count() - 1, loading_label)
+        self.loading_label = loading_label
 
         self.worker = AdvisorWorker(self.current_user_path, chat_history)
         self.worker.finished_signal.connect(self.on_realtime_finished)
         self.worker.error_signal.connect(self.on_realtime_error)
+        self.worker.progress_signal.connect(self.on_progress)
         self.worker.start()
+
+    def on_progress(self, msg):
+        if self.loading_label is not None:
+            self.loading_label.setText(msg)
 
     def on_realtime_finished(self, result):
         self.rt_btn.setEnabled(True)

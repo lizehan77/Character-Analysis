@@ -3,3 +3,5 @@ Users/
 __pycache__/
 .venv/
 .idea/
+.local_server.json
+.local_server.log

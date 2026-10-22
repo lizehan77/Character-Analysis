@@ -10,6 +10,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 class ChatWorker(QThread):
     finished_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
+    progress_signal = pyqtSignal(str)
 
     def __init__(self, folder_path, history_list):
         super().__init__()
@@ -21,8 +22,15 @@ class ChatWorker(QThread):
             worker_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "simulate_worker.py")
             proc = subprocess.Popen([sys.executable, worker_path, self.folder_path, self.history_json],
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8",
-                                    errors="replace")
-            out, _ = proc.communicate()
+                                    errors="replace", bufsize=1)
+            chunks = []
+            for line in proc.stdout:  # 流式读取，实时回显进度
+                chunks.append(line)
+                if "[PROGRESS]" in line:
+                    self.progress_signal.emit(line.split("[PROGRESS]", 1)[-1].strip())
+            proc.stdout.close()
+            proc.wait()
+            out = "".join(chunks)
             if proc.returncode != 0: self.error_signal.emit(out); return
             if "OK:" in out:
                 self.finished_signal.emit(out.split("OK:", 1)[-1].strip())
@@ -41,6 +49,7 @@ class SimulationPage(QWidget):
         self.worker = None
         self.chat_history = []
         self.moni_file = ""
+        self.typing_label = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -203,13 +212,19 @@ class SimulationPage(QWidget):
         typing_label.setStyleSheet("color: #888; font-size: 11px;")
         typing_label.setObjectName("typing_indicator")
         self.chat_layout.insertWidget(self.chat_layout.count() - 1, typing_label)
+        self.typing_label = typing_label
         QTimer.singleShot(50, lambda: self.scroll_area.verticalScrollBar().setValue(
             self.scroll_area.verticalScrollBar().maximum()))
 
         self.worker = ChatWorker(self.current_user_path, self.chat_history)
         self.worker.finished_signal.connect(self.on_chat_finished)
         self.worker.error_signal.connect(self.on_chat_error)
+        self.worker.progress_signal.connect(self.on_progress)
         self.worker.start()
+
+    def on_progress(self, msg):
+        if self.typing_label is not None:
+            self.typing_label.setText(msg)
 
     def on_chat_finished(self, reply):
         self.send_btn.setEnabled(True)
@@ -222,6 +237,7 @@ class SimulationPage(QWidget):
             if item.widget() and item.widget().objectName() == "typing_indicator":
                 item.widget().deleteLater()
                 break
+        self.typing_label = None  # 标签已销毁，避免后续 on_progress 访问悬空引用
 
         reply = re.sub(r'\x1b\[[0-9;]*m', '', reply).replace("[0m", "").replace("\x1b", "")
 

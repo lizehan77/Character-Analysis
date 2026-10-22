@@ -286,6 +286,16 @@ class MainWindow(QMainWindow):
             self.user_label.setText(f"👤 当前用户: {user}")
             self.update_pages_data(user)
 
+    def closeEvent(self, event):
+        """退出界面时关闭常驻推理服务，释放显存（失败也不阻塞退出）。"""
+        try:
+            if self.base_dir not in sys.path: sys.path.append(self.base_dir)
+            from local_engine import stop_server
+            stop_server()
+        except Exception:
+            pass
+        super().closeEvent(event)
+
 
 if __name__ == "__main__":
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
